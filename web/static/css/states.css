@@ -1,0 +1,51 @@
+/* Empty, error and other non-table page states. Kept small and aligned with the
+   existing card/button visual language. */
+
+.state{
+    text-align:center;
+    padding:40px 20px;
+    border:1px dashed #cbd5e1;
+    border-radius:12px;
+    background:#f8fafc;
+    color:#334155;
+}
+
+.state-icon{
+    font-size:36px;
+    line-height:1;
+    margin-bottom:12px;
+}
+
+.state-title{
+    font-size:1.1rem;
+    font-weight:bold;
+    color:#1e293b;
+    margin-bottom:6px;
+}
+
+.state-text{
+    font-size:.95rem;
+    color:#64748b;
+    margin-bottom:16px;
+    word-break:word-break;
+}
+
+.state .btn{
+    margin-top:4px;
+}
+
+.state-error{
+    border-color:#fca5a5;
+    background:#fef2f2;
+}
+
+.state-error .state-title{
+    color:#b91c1c;
+}
+
+.state-code{
+    font-size:2rem;
+    font-weight:bold;
+    color:#b91c1c;
+    margin-bottom:8px;
+}

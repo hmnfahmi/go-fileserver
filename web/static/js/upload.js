@@ -9,6 +9,63 @@
         return;
     }
 
+    // isUploading guards against a second submission while a request is in
+    // flight, which a disabled button alone does not prevent (an implicit
+    // submit via the Enter key can still fire the submit event).
+    let isUploading = false;
+
+    function getSubmitButton() {
+        return uploadForm.querySelector("button[type='submit']");
+    }
+
+    function selectionSummary() {
+        if (!fileInput.files || fileInput.files.length === 0) {
+            return "";
+        }
+
+        const files = Array.from(fileInput.files);
+
+        const list = files
+            .map(function (file) {
+                return `${file.name} (${formatFileSize(file.size)})`;
+            })
+            .join(", ");
+
+        return `${files.length} file(s) selected: ${list}`;
+    }
+
+    function setStatus(text) {
+        selectedFile.textContent = text;
+        selectedFile.classList.toggle("show", text !== "");
+    }
+
+    // setUploading toggles every piece of transient upload feedback: the button
+    // label/disabled state, the form's aria-busy flag and the visible status
+    // text. It is always called with active=false from the submit handler's
+    // finally block so the UI is restored after success and failure alike.
+    function setUploading(active, count) {
+        const button = getSubmitButton();
+
+        if (active) {
+            uploadForm.setAttribute("aria-busy", "true");
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = "Uploading...";
+            }
+
+            setStatus(`Uploading ${count} file(s)...`);
+            return;
+        }
+
+        uploadForm.removeAttribute("aria-busy");
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Upload";
+        }
+    }
+
     function showWarning(message) {
         warning.textContent = message;
         warning.classList.add("show");
@@ -36,25 +93,14 @@
     }
 
     function updateSelectedFiles() {
-        if (!fileInput.files || fileInput.files.length === 0) {
-            selectedFile.textContent = "";
-            selectedFile.classList.remove("show");
+        const summary = selectionSummary();
+
+        if (summary === "") {
+            setStatus("");
             return;
         }
 
-        const files = Array.from(fileInput.files);
-
-        const list = files
-            .map(function (file) {
-                return `${file.name} (${formatFileSize(file.size)})`;
-            })
-            .join(", ");
-
-        selectedFile.textContent =
-            `${files.length} file(s) selected: ${list}`;
-
-        selectedFile.classList.add("show");
-
+        setStatus(summary);
         hideWarning();
     }
 
@@ -76,6 +122,15 @@
 
     uploadZone.addEventListener("click", function () {
         fileInput.click();
+    });
+
+    // The zone is a focusable role="button"; native buttons activate on Enter
+    // and Space, so mirror that for keyboard users.
+    uploadZone.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" || event.key === " " || event.key === "Spacebar") {
+            event.preventDefault();
+            fileInput.click();
+        }
     });
 
     fileInput.addEventListener("change", function () {
@@ -113,6 +168,10 @@
     uploadForm.addEventListener("submit", async function (event) {
         event.preventDefault();
 
+        if (isUploading) {
+            return;
+        }
+
         if (!fileInput.files || fileInput.files.length === 0) {
             showWarning("Please select at least one file before uploading.");
             return;
@@ -120,11 +179,10 @@
 
         hideWarning();
 
-        const submitButton =
-            uploadForm.querySelector("button[type='submit']");
+        const fileCount = fileInput.files.length;
 
-        submitButton.disabled = true;
-        submitButton.textContent = "Uploading...";
+        isUploading = true;
+        setUploading(true, fileCount);
 
         try {
             const formData = new FormData(uploadForm);
@@ -145,6 +203,7 @@
             handleUploadResult(result);
 
         } catch (error) {
+            setStatus(selectionSummary());
             showWarning(
                 "Upload failed. Please check the server connection."
             );
@@ -152,8 +211,8 @@
             console.error("[UPLOAD]", error);
 
         } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = "Upload";
+            isUploading = false;
+            setUploading(false);
         }
     });
 
@@ -189,8 +248,7 @@
         }
 
         if (messages.length > 0) {
-            selectedFile.textContent = messages.join("\n");
-            selectedFile.classList.add("show");
+            setStatus(messages.join("\n"));
         }
 
         if (

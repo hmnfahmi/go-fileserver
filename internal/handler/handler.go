@@ -24,6 +24,73 @@ var indexTemplate = template.Must(
 	}).ParseFS(simpleweb.Templates, "templates/index.html"),
 )
 
+// errorTemplate renders a small, self-contained error page for browser
+// navigations. It only ever receives a status code and an already-sanitised
+// client-safe message; filesystem paths and raw errors are never passed in.
+var errorTemplate = template.Must(
+	template.New("error.html").ParseFS(simpleweb.Templates, "templates/error.html"),
+)
+
+// errorPageData is the view model for error.html.
+type errorPageData struct {
+	Status  int
+	Title   string
+	Message string
+}
+
+// errorTitle maps an HTTP status to a short, human-readable heading. It never
+// echoes the underlying error, so no internal detail can reach the page.
+func errorTitle(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "Bad request"
+	case http.StatusForbidden:
+		return "Access denied"
+	case http.StatusNotFound:
+		return "Page not found"
+	case http.StatusMethodNotAllowed:
+		return "Method not allowed"
+	case http.StatusConflict:
+		return "Conflict"
+	case http.StatusRequestEntityTooLarge:
+		return "Content too large"
+	case http.StatusUnsupportedMediaType:
+		return "Unsupported file type"
+	default:
+		return "Something went wrong"
+	}
+}
+
+// renderErrorPage writes an HTML error page while preserving the supplied HTTP
+// status. The status is committed before the body so a 403/404 can never be
+// turned into a 200 by the rendering step.
+func renderErrorPage(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+
+	data := errorPageData{
+		Status:  status,
+		Title:   errorTitle(status),
+		Message: message,
+	}
+
+	if err := errorTemplate.Execute(w, data); err != nil {
+		log.Printf("[ERROR] rendering error page: %v", err)
+	}
+}
+
+// writeHTMLServiceError renders the shared error page for a browser-navigation
+// request (browse or preview). Content endpoints such as download and zip keep
+// using writeServiceError, which returns a plain-text body appropriate for a
+// file transfer.
+func writeHTMLServiceError(w http.ResponseWriter, err error) {
+	status := statusForError(err)
+	if status >= http.StatusInternalServerError {
+		log.Printf("[ERROR] %v", err)
+	}
+	renderErrorPage(w, status, service.PublicMessage(err))
+}
+
 type BreadcrumbItem struct {
 	Name string
 	Path string
@@ -109,7 +176,7 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		writeServiceError(w, err)
+		writeHTMLServiceError(w, err)
 		return
 	}
 
@@ -117,7 +184,7 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 	// always contain slash-separated, traversal-free paths.
 	current, err := service.CleanRel(rel)
 	if err != nil {
-		writeServiceError(w, err)
+		writeHTMLServiceError(w, err)
 		return
 	}
 
@@ -252,27 +319,27 @@ func View(w http.ResponseWriter, r *http.Request) {
 
 	target, err := service.ResolveExisting(rel)
 	if err != nil {
-		writeServiceError(w, err)
+		writeHTMLServiceError(w, err)
 		return
 	}
 
 	kind := service.ClassifyPreview(strings.ToLower(path.Ext(target)))
 	if kind == service.PreviewNone {
-		http.Error(w, "File type not previewable", http.StatusUnsupportedMediaType)
+		renderErrorPage(w, http.StatusUnsupportedMediaType, "File type not previewable")
 		return
 	}
 
 	info, err := os.Stat(target)
 	if err != nil {
-		writeServiceError(w, err)
+		writeHTMLServiceError(w, err)
 		return
 	}
 	if info.IsDir() {
-		http.Error(w, "Cannot preview a directory", http.StatusBadRequest)
+		renderErrorPage(w, http.StatusBadRequest, "Cannot preview a directory")
 		return
 	}
 	if info.Size() > config.MaxPreviewSize {
-		http.Error(w, "File too large to preview", http.StatusRequestEntityTooLarge)
+		renderErrorPage(w, http.StatusRequestEntityTooLarge, "File too large to preview")
 		return
 	}
 

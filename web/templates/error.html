@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - go-fileserver</title>
+    <link rel="stylesheet" href="/static/css/reset.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/button.css">
+    <link rel="stylesheet" href="/static/css/states.css">
+</head>
+<body>
+    <div class="container">
+        <h1>File Browser</h1>
+        <div class="state state-error">
+            <div class="state-code" aria-hidden="true">{{.Status}}</div>
+            <h2 class="state-title">{{.Title}}</h2>
+            <p class="state-text">{{.Message}}</p>
+            <a class="btn primary" href="/">Back to Home</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/static/css/table.css">
     <link rel="stylesheet" href="/static/css/dropdown.css">
     <link rel="stylesheet" href="/static/css/upload.css">
+    <link rel="stylesheet" href="/static/css/states.css">
 </head>
 <body>
     <div class="container">
@@ -84,7 +85,8 @@
 
                 <div
                     id="upload-selected"
-                    class="upload-selected">
+                    class="upload-selected"
+                    aria-live="polite">
                 </div>
 
                 <div
@@ -108,6 +110,7 @@
             {{end}}
         </nav>
 
+        {{if .Files}}
         <table>
             <thead>
                 <tr>
@@ -186,6 +189,21 @@
             {{end}}
             </tbody>
         </table>
+        {{else if .Search}}
+        <div class="state">
+            <div class="state-icon" aria-hidden="true">🔍</div>
+            <h2 class="state-title">No files or folders match your search.</h2>
+            <p class="state-text">No matches for “{{.Search}}”.</p>
+            <a class="btn primary" href="/?path={{.Current}}">Clear search</a>
+        </div>
+        {{else}}
+        <div class="state">
+            <div class="state-icon" aria-hidden="true">📂</div>
+            <h2 class="state-title">This folder is empty.</h2>
+            <p class="state-text">There are no files or folders here yet.</p>
+            <a class="btn primary" href="#upload-zone">Upload a file</a>
+        </div>
+        {{end}}
     </div>
     <script>
     function renameFile(path,currentName){

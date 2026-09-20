@@ -17,6 +17,7 @@
             <h2 class="state-title">{{.Title}}</h2>
             <p class="state-text">{{.Message}}</p>
             <a class="btn primary" href="/">Back to Home</a>
+            {{if .BackHref}}<a class="btn" href="{{.BackHref}}">{{.BackLabel}}</a>{{end}}
         </div>
     </div>
 </body>

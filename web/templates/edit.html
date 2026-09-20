@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit: {{.Name}} - go-fileserver</title>
+    <link rel="stylesheet" href="/static/css/reset.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/button.css">
+    <link rel="stylesheet" href="/static/css/forms.css">
+    <link rel="stylesheet" href="/static/css/responsive.css">
+    <link rel="stylesheet" href="/static/css/edit.css">
+</head>
+<body>
+    <div class="container">
+        <h1>File Browser</h1>
+
+        <nav class="breadcrumb">
+            <a href="/">Home</a> / <span class="editor-path">{{.Path}}</span>
+        </nav>
+
+        <div class="editor-header">
+            <h2 class="editor-title">Edit: {{.Name}}</h2>
+            <span class="editor-meta">{{.SizeText}}</span>
+        </div>
+
+        <form id="edit-form" action="/edit" method="POST">
+            <input type="hidden" name="path" value="{{.Path}}">
+            <input type="hidden" name="version" value="{{.Version}}">
+
+            <textarea
+                id="edit-content"
+                name="content"
+                class="editor-textarea"
+                spellcheck="false"
+                autocomplete="off"
+                aria-label="File content">{{.Content}}</textarea>
+
+            <p
+                id="edit-status"
+                class="editor-status"
+                role="status"
+                aria-live="polite"></p>
+
+            <div class="editor-actions">
+                <a class="btn" href="/?path={{.Parent}}">Cancel</a>
+                <button type="submit" id="edit-save" class="primary">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <script src="/static/js/edit.js"></script>
+</body>
+</html>

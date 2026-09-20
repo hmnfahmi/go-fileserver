@@ -38,6 +38,9 @@ func TestDefaultIsValid(t *testing.T) {
 	if cfg.Storage.MaxPreviewSize != 2*1024*1024 {
 		t.Errorf("default preview size = %d", cfg.Storage.MaxPreviewSize)
 	}
+	if cfg.Storage.MaxEditSize != 1*1024*1024 {
+		t.Errorf("default edit size = %d, want %d", cfg.Storage.MaxEditSize, 1*1024*1024)
+	}
 }
 
 func TestValidatePort(t *testing.T) {
@@ -90,6 +93,8 @@ func TestValidateRejectsInvalidStorage(t *testing.T) {
 			c.Storage.MaxUploadSize = 1024
 			c.Storage.MaxPreviewSize = 2048
 		}},
+		{"zero edit size", func(c *Config) { c.Storage.MaxEditSize = 0 }},
+		{"negative edit size", func(c *Config) { c.Storage.MaxEditSize = -1 }},
 	}
 
 	for _, tt := range tests {
@@ -111,6 +116,32 @@ func TestValidateAcceptsPreviewEqualToUpload(t *testing.T) {
 
 	if err := cfg.Validate(); err != nil {
 		t.Fatalf("preview equal to upload should be valid, got: %v", err)
+	}
+}
+
+func TestLoadParsesMaxEditSize(t *testing.T) {
+	dir := t.TempDir()
+	path := writeConfig(t, dir, "storage:\n  max_edit_size: 4096\n")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Storage.MaxEditSize != 4096 {
+		t.Errorf("edit size = %d, want 4096", cfg.Storage.MaxEditSize)
+	}
+}
+
+// The edit limit is independent of the preview and upload limits: a larger edit
+// size is valid even when the other two are small.
+func TestValidateAcceptsEditSizeIndependentOfOtherLimits(t *testing.T) {
+	cfg := Default()
+	cfg.Storage.MaxUploadSize = 1024
+	cfg.Storage.MaxPreviewSize = 1024
+	cfg.Storage.MaxEditSize = 8192
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("edit size independent of other limits should be valid, got: %v", err)
 	}
 }
 
@@ -150,6 +181,9 @@ func TestLoadAppliesDefaultsForMissingKeys(t *testing.T) {
 	}
 	if cfg.Storage.MaxPreviewSize != Default().Storage.MaxPreviewSize {
 		t.Errorf("preview size = %d, want default", cfg.Storage.MaxPreviewSize)
+	}
+	if cfg.Storage.MaxEditSize != Default().Storage.MaxEditSize {
+		t.Errorf("edit size = %d, want default", cfg.Storage.MaxEditSize)
 	}
 	if cfg.Storage.SharedPath == "" {
 		t.Error("shared path should fall back to the default")

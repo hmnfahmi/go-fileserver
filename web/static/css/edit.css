@@ -1,0 +1,91 @@
+/* Server-rendered text editor. Kept dependency-free and aligned with the
+   existing card/button visual language. */
+
+.editor-path{
+    color:#64748b;
+    word-break:break-all;
+}
+
+.editor-header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:12px;
+}
+
+.editor-title{
+    font-size:1.25rem;
+    word-break:break-all;
+}
+
+.editor-meta{
+    color:#64748b;
+    font-size:.9rem;
+    white-space:nowrap;
+}
+
+.editor-textarea{
+    display:block;
+    width:100%;
+    min-height:60vh;
+    padding:14px;
+    border:1px solid #cbd5e1;
+    border-radius:10px;
+    background:#f8fafc;
+    color:#0f172a;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:.95rem;
+    line-height:1.5;
+    resize:vertical;
+    tab-size:4;
+    white-space:pre;
+    overflow:auto;
+}
+
+.editor-textarea:focus{
+    outline:2px solid #1976d2;
+    outline-offset:1px;
+    background:#fff;
+}
+
+.editor-status{
+    min-height:1.2em;
+    margin-top:8px;
+    font-size:.9rem;
+    color:#64748b;
+}
+
+.editor-actions{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:10px;
+    margin-top:12px;
+}
+
+.editor-actions .btn{
+    margin:0;
+}
+
+@media (max-width:768px){
+    .editor-header{
+        flex-direction:column;
+        gap:4px;
+    }
+
+    .editor-textarea{
+        min-height:50vh;
+    }
+
+    .editor-actions{
+        flex-direction:column-reverse;
+        align-items:stretch;
+    }
+
+    .editor-actions .btn,
+    .editor-actions button{
+        width:100%;
+        text-align:center;
+    }
+}

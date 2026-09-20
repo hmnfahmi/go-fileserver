@@ -31,6 +31,11 @@ type StorageConfig struct {
 	SharedPath     string `yaml:"shared_path"`
 	MaxUploadSize  int64  `yaml:"max_upload_size"`
 	MaxPreviewSize int64  `yaml:"max_preview_size"`
+	// MaxEditSize bounds the size of a file that may be opened in the browser
+	// text editor. It is intentionally independent of MaxPreviewSize and
+	// MaxUploadSize: editing is limited by what a textarea can handle, not by
+	// what can be previewed or uploaded.
+	MaxEditSize int64 `yaml:"max_edit_size"`
 }
 
 // Values used by the rest of the application. They are populated once by Init
@@ -40,6 +45,7 @@ var (
 	SharedPath     string
 	MaxUploadSize  int64
 	MaxPreviewSize int64
+	MaxEditSize    int64
 	ConfigPath     string
 )
 
@@ -54,6 +60,7 @@ func Default() Config {
 			SharedPath:     "./shared",
 			MaxUploadSize:  100 * 1024 * 1024,
 			MaxPreviewSize: 2 * 1024 * 1024,
+			MaxEditSize:    1 * 1024 * 1024,
 		},
 	}
 }
@@ -76,6 +83,7 @@ func Init() error {
 	SharedPath = cfg.Storage.SharedPath
 	MaxUploadSize = cfg.Storage.MaxUploadSize
 	MaxPreviewSize = cfg.Storage.MaxPreviewSize
+	MaxEditSize = cfg.Storage.MaxEditSize
 	ConfigPath = path
 
 	return nil
@@ -180,6 +188,10 @@ func (c Config) Validate() error {
 			c.Storage.MaxPreviewSize,
 			c.Storage.MaxUploadSize,
 		)
+	}
+
+	if c.Storage.MaxEditSize <= 0 {
+		return fmt.Errorf("storage.max_edit_size must be greater than 0 (got %d)", c.Storage.MaxEditSize)
 	}
 
 	return nil

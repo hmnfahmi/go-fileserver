@@ -205,6 +205,7 @@ func TestMethodNotAllowedAllowHeaders(t *testing.T) {
 		{"rename", Rename, http.MethodGet, "POST"},
 		{"mkdir", CreateFolder, http.MethodGet, "POST"},
 		{"create-file", CreateFile, http.MethodGet, "POST"},
+		{"edit", Edit, http.MethodPut, "GET, HEAD, POST"},
 	}
 
 	for _, tc := range cases {
@@ -262,6 +263,15 @@ func TestMethodRejectionPrecedesMutation(t *testing.T) {
 	CreateFile(createRec, httptest.NewRequest(http.MethodGet, "/create-file?path=&name=made.txt", nil))
 	if createRec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("GET /create-file status = %d, want 405", createRec.Code)
+	}
+
+	editRec := httptest.NewRecorder()
+	Edit(editRec, httptest.NewRequest(http.MethodPut, "/edit?path=victim.txt&content=changed", nil))
+	if editRec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("PUT /edit status = %d, want 405", editRec.Code)
+	}
+	if got := readFileString(t, victim); got != "keep" {
+		t.Errorf("file was modified by a rejected PUT /edit: %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(root, "made-dir")); !os.IsNotExist(err) {
 		t.Errorf("directory was created by a rejected GET /mkdir")

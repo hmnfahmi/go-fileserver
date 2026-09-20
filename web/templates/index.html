@@ -175,6 +175,11 @@
                                     🗜️ Download ZIP
                                 </a>
                                 {{else}}
+                                {{if .Editable}}
+                                <a href="/edit?path={{.RelPath}}">
+                                    📝 Edit
+                                </a>
+                                {{end}}
                                 {{if .Previewable}}
                                 <a href="/view?path={{.RelPath}}">
                                     {{if isImage .Kind}}🖼 Image{{else}}👁 Preview{{end}}

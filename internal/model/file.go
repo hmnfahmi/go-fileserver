@@ -14,6 +14,10 @@ type FileItem struct {
 	Modified     time.Time
 	ModifiedText string
 	Previewable  bool
+	// Editable reports whether the entry can be opened in the browser editor.
+	// It is a presentation hint only; the /edit endpoint re-validates every
+	// request server-side.
+	Editable bool
 	// Kind is a presentation-only classification used to pick a listing icon.
 	// It never affects filesystem access and is excluded from any JSON output.
 	Kind FileKind `json:"-"`

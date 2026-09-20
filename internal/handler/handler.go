@@ -32,11 +32,15 @@ var errorTemplate = template.Must(
 	template.New("error.html").ParseFS(simpleweb.Templates, "templates/error.html"),
 )
 
-// errorPageData is the view model for error.html.
+// errorPageData is the view model for error.html. BackHref/BackLabel are
+// optional: when set, the page offers a second navigation action (for example
+// back to the folder that holds a file whose save conflicted).
 type errorPageData struct {
-	Status  int
-	Title   string
-	Message string
+	Status    int
+	Title     string
+	Message   string
+	BackHref  string
+	BackLabel string
 }
 
 // errorTitle maps an HTTP status to a short, human-readable heading. It never
@@ -66,13 +70,22 @@ func errorTitle(status int) string {
 // status. The status is committed before the body so a 403/404 can never be
 // turned into a 200 by the rendering step.
 func renderErrorPage(w http.ResponseWriter, status int, message string) {
+	renderErrorPageWithBack(w, status, message, "", "")
+}
+
+// renderErrorPageWithBack renders the shared error page with an optional second
+// navigation action. The BackHref is built by the caller from an already
+// canonicalised, client-safe path; no filesystem path is ever passed in.
+func renderErrorPageWithBack(w http.ResponseWriter, status int, message, backHref, backLabel string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 
 	data := errorPageData{
-		Status:  status,
-		Title:   errorTitle(status),
-		Message: message,
+		Status:    status,
+		Title:     errorTitle(status),
+		Message:   message,
+		BackHref:  backHref,
+		BackLabel: backLabel,
 	}
 
 	if err := errorTemplate.Execute(w, data); err != nil {
@@ -147,6 +160,15 @@ func statusForError(err error) int {
 		return http.StatusBadRequest
 	case errors.Is(err, service.ErrFileExists):
 		return http.StatusConflict
+	case errors.Is(err, service.ErrConflict):
+		return http.StatusConflict
+	case errors.Is(err, service.ErrTooLarge):
+		return http.StatusRequestEntityTooLarge
+	case errors.Is(err, service.ErrNotEditable),
+		errors.Is(err, service.ErrInvalidEncoding):
+		return http.StatusUnsupportedMediaType
+	case errors.Is(err, service.ErrNotRegular):
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}

@@ -22,3 +22,7 @@ storage:
   # Maximum file size that can be previewed, in bytes. 2097152 = 2 MB.
   # Must not exceed max_upload_size.
   max_preview_size: 2097152
+
+  # Maximum size of a text file that can be opened in the browser editor, in
+  # bytes. 1048576 = 1 MB. Independent of the preview and upload limits.
+  max_edit_size: 1048576

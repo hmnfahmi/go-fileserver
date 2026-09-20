@@ -22,15 +22,18 @@ func withSharedRoot(t *testing.T, dir string) {
 	originalPath := config.SharedPath
 	originalPreview := config.MaxPreviewSize
 	originalUpload := config.MaxUploadSize
+	originalEdit := config.MaxEditSize
 
 	config.SharedPath = dir
 	config.MaxPreviewSize = 1024 * 1024
 	config.MaxUploadSize = 1024 * 1024
+	config.MaxEditSize = 1024 * 1024
 
 	t.Cleanup(func() {
 		config.SharedPath = originalPath
 		config.MaxPreviewSize = originalPreview
 		config.MaxUploadSize = originalUpload
+		config.MaxEditSize = originalEdit
 	})
 }
 
@@ -238,6 +241,8 @@ func TestBuildMuxRegistersRoutes(t *testing.T) {
 		{"rename method guard", http.MethodGet, "/rename", http.StatusMethodNotAllowed, ""},
 		{"mkdir method guard", http.MethodGet, "/mkdir", http.StatusMethodNotAllowed, ""},
 		{"create-file method guard", http.MethodGet, "/create-file", http.StatusMethodNotAllowed, ""},
+		{"edit", http.MethodGet, "/edit?path=f.txt", http.StatusOK, ""},
+		{"edit method guard", http.MethodPut, "/edit?path=f.txt", http.StatusMethodNotAllowed, ""},
 	}
 
 	for _, tc := range cases {

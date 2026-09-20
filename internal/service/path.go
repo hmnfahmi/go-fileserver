@@ -29,6 +29,21 @@ var (
 	ErrNotDirectory = errors.New("target is not a directory")
 	// ErrIsDirectory means the target exists but is a directory.
 	ErrIsDirectory = errors.New("target is a directory")
+	// ErrNotRegular means the target is not a regular file (for example a
+	// FIFO, socket or device) and therefore cannot be edited.
+	ErrNotRegular = errors.New("target is not a regular file")
+	// ErrNotEditable means the file extension is not on the browser-editor
+	// allowlist.
+	ErrNotEditable = errors.New("file type is not editable")
+	// ErrInvalidEncoding means the file is not valid UTF-8 and cannot be
+	// edited as text.
+	ErrInvalidEncoding = errors.New("file is not valid UTF-8 text")
+	// ErrTooLarge means the file (or the content being saved) exceeds the
+	// configured editable-file size limit.
+	ErrTooLarge = errors.New("file is too large to edit")
+	// ErrConflict means the file changed on disk after it was opened in the
+	// editor, so saving would overwrite someone else's changes.
+	ErrConflict = errors.New("file changed since it was opened")
 )
 
 // CleanRel converts a request-controlled logical path into a canonical,
@@ -275,6 +290,16 @@ func PublicMessage(err error) string {
 		return "Target is not a directory"
 	case errors.Is(err, ErrIsDirectory):
 		return "Target is a directory"
+	case errors.Is(err, ErrNotRegular):
+		return "Target is not a regular file"
+	case errors.Is(err, ErrNotEditable):
+		return "File type is not editable"
+	case errors.Is(err, ErrInvalidEncoding):
+		return "File is not valid UTF-8 text"
+	case errors.Is(err, ErrTooLarge):
+		return "File is too large to edit"
+	case errors.Is(err, ErrConflict):
+		return "File changed since it was opened"
 	case errors.Is(err, ErrFileExists):
 		return "File already exists"
 	default:

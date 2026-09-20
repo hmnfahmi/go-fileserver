@@ -97,7 +97,11 @@ func fileItemFromEntry(name, relPath string, info os.FileInfo) model.FileItem {
 		Modified:     info.ModTime(),
 		ModifiedText: info.ModTime().Format("2006-01-02"),
 		Previewable:  !isDir && ClassifyPreview(ext) != PreviewNone,
-		Kind:         model.ClassifyFileKind(name, isDir),
+		// Editable is a UX hint: the extension must be allowed and the file
+		// must fit the edit-size limit. The /edit endpoint re-validates both,
+		// so hiding the action is never the security boundary.
+		Editable: !isDir && IsEditableName(name) && info.Size() <= EditSizeLimit(),
+		Kind:     model.ClassifyFileKind(name, isDir),
 	}
 }
 

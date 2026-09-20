@@ -2,22 +2,21 @@ package handler
 
 import (
 	"errors"
+	"go-fileserver/internal/service"
 	"net/http"
 	"net/url"
-	"path/filepath"
-	"simple-http-fileserver-go/internal/service"
+	"path"
 )
 
 func Delete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !allowMethods(w, r, http.MethodPost) {
 		return
 	}
 
 	rel := r.FormValue("path")
 
 	if err := service.Delete(rel); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeServiceError(w, err)
 		return
 	}
 
@@ -25,8 +24,7 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func Rename(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !allowMethods(w, r, http.MethodPost) {
 		return
 	}
 
@@ -35,20 +33,28 @@ func Rename(w http.ResponseWriter, r *http.Request) {
 
 	if err := service.Rename(rel, newName); err != nil {
 		if errors.Is(err, service.ErrFileExists) {
-			http.Error(w, "A file/folder named '"+newName+"' already exists", http.StatusConflict)
+			http.Error(w, "A file or folder with that name already exists", http.StatusConflict)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeServiceError(w, err)
 		return
 	}
 
 	http.Redirect(w, r, "/?path="+url.QueryEscape(parentDir(rel)), http.StatusSeeOther)
 }
 
+// parentDir returns the slash-separated parent of a logical path ("" at the
+// root), so redirects stay in the same path style as the rest of the app.
 func parentDir(rel string) string {
-	dir := filepath.Dir(rel)
-	if dir == "." {
+	cleaned, err := service.CleanRel(rel)
+	if err != nil {
 		return ""
 	}
+
+	dir := path.Dir(cleaned)
+	if dir == "." || dir == "/" {
+		return ""
+	}
+
 	return dir
 }

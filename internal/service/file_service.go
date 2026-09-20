@@ -1,18 +1,32 @@
 package service
 
 import (
+	"go-fileserver/internal/formatter"
+	"go-fileserver/internal/model"
 	"os"
+	"path"
 	"path/filepath"
-	"simple-http-fileserver-go/internal/formatter"
-	"simple-http-fileserver-go/internal/model"
 	"sort"
 	"strings"
 )
 
 func List(opts model.ListOptions) ([]model.FileItem, error) {
-	target, err := SafePath(opts.Path)
+	logical, err := CleanRel(opts.Path)
 	if err != nil {
 		return nil, err
+	}
+
+	target, err := ResolveExisting(logical)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(target)
+	if err != nil {
+		return nil, err
+	}
+	if !info.IsDir() {
+		return nil, ErrNotDirectory
 	}
 
 	opts = normalizeListOptions(opts)
@@ -43,7 +57,7 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 
 		files = append(files, model.FileItem{
 			Name:         name,
-			RelPath:      filepath.Join(opts.Path, name),
+			RelPath:      path.Join(logical, name),
 			IsDir:        entry.IsDir(),
 			Size:         info.Size(),
 			SizeText:     formatter.FormatSize(info.Size()),

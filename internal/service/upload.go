@@ -4,14 +4,21 @@ import (
 	"errors"
 	"io"
 	"os"
-	"path/filepath"
-	"strings"
+	"path"
 )
 
 var ErrFileExists = errors.New("file already exists")
 
+// SaveUpload writes an uploaded file into the requested directory inside the
+// shared root. The filename is reduced to a single path component and the
+// destination is created with O_EXCL so an existing symlink is never followed.
 func SaveUpload(dirRel string, filename string, r io.Reader) error {
-	dir, err := SafePath(dirRel)
+	logicalDir, err := CleanRel(dirRel)
+	if err != nil {
+		return err
+	}
+
+	dir, err := ResolveExisting(logicalDir)
 	if err != nil {
 		return err
 	}
@@ -21,20 +28,18 @@ func SaveUpload(dirRel string, filename string, r io.Reader) error {
 		return err
 	}
 	if !info.IsDir() {
-		return errors.New("target is not a directory")
+		return ErrNotDirectory
 	}
 
-	normalized := strings.ReplaceAll(filename, "\\", "/")
-	safeName := filepath.Base(normalized)
-	if safeName == "" || safeName == "." || safeName == ".." || strings.ContainsAny(safeName, "/\\") {
-		return errors.New("invalid file name")
-	}
-
-	if _, err := SafePath(filepath.Join(dirRel, safeName)); err != nil {
+	safeName, err := CleanName(filename)
+	if err != nil {
 		return err
 	}
 
-	destPath := filepath.Join(dir, safeName)
+	destPath, err := ResolveForCreate(path.Join(logicalDir, safeName))
+	if err != nil {
+		return err
+	}
 
 	f, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {

@@ -3,12 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"go-fileserver/internal/config"
+	"go-fileserver/internal/service"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"simple-http-fileserver-go/internal/config"
-	"simple-http-fileserver-go/internal/service"
 )
 
 type uploadResponse struct {
@@ -23,8 +23,7 @@ type uploadFileError struct {
 }
 
 func Upload(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !allowMethods(w, r, http.MethodPost) {
 		return
 	}
 
@@ -111,7 +110,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			result.Failed,
 			uploadFileError{
 				Name:    fileName,
-				Message: saveErr.Error(),
+				Message: service.PublicMessage(saveErr),
 			},
 		)
 	}

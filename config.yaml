@@ -1,7 +1,24 @@
+# go-fileserver configuration.
+#
+# This file is read from the directory that contains the executable
+# (go-fileserver.exe), or from the current working directory if it is not
+# found next to the executable. Restart the application after editing.
+
 server:
+  # TCP port the server listens on. Must be between 1 and 65535.
   port: "8088"
 
 storage:
+  # Directory used for browse, upload, download, delete, rename and preview.
+  # A relative path is resolved against the directory containing this file,
+  # so "./shared" means "shared" next to config.yaml.
+  # An absolute path (including another drive, e.g. "D:/SharedFiles") is used
+  # as-is. The directory is created automatically if it does not exist.
   shared_path: "./shared"
-  max_upload_size: 104857600 # 100 MB in bytes
-  max_preview_size: 2097152 # 2MB in bytes
+
+  # Maximum accepted upload size, in bytes. 104857600 = 100 MB.
+  max_upload_size: 104857600
+
+  # Maximum file size that can be previewed, in bytes. 2097152 = 2 MB.
+  # Must not exceed max_upload_size.
+  max_preview_size: 2097152

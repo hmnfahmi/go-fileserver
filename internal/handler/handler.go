@@ -1,22 +1,78 @@
 package handler
 
 import (
+	"errors"
+	"go-fileserver/internal/config"
+	"go-fileserver/internal/model"
+	"go-fileserver/internal/service"
+	simpleweb "go-fileserver/web"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"simple-http-fileserver-go/internal/config"
-	"simple-http-fileserver-go/internal/model"
-	"simple-http-fileserver-go/internal/service"
+	"path"
 	"strings"
 )
+
+// indexTemplate is parsed from the embedded template at startup.
+var indexTemplate = template.Must(template.ParseFS(simpleweb.Templates, "templates/index.html"))
 
 type BreadcrumbItem struct {
 	Name string
 	Path string
 }
 
+// allowMethods checks the request method and, when it is not permitted, writes
+// a 405 response with the correct Allow header. It returns true when the caller
+// should continue handling the request.
+func allowMethods(w http.ResponseWriter, r *http.Request, methods ...string) bool {
+	for _, method := range methods {
+		if r.Method == method {
+			return true
+		}
+	}
+
+	w.Header().Set("Allow", strings.Join(methods, ", "))
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	return false
+}
+
+// writeServiceError logs the underlying filesystem error and writes a
+// client-safe message with the appropriate HTTP status. Internal error details
+// (absolute paths, OS error strings) never reach the client.
+func writeServiceError(w http.ResponseWriter, err error) {
+	status := statusForError(err)
+	if status >= http.StatusInternalServerError {
+		log.Printf("[ERROR] %v", err)
+	}
+	http.Error(w, service.PublicMessage(err), status)
+}
+
+func statusForError(err error) int {
+	switch {
+	case errors.Is(err, service.ErrAccessDenied):
+		return http.StatusForbidden
+	case errors.Is(err, service.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, service.ErrInvalidPath),
+		errors.Is(err, service.ErrInvalidName):
+		return http.StatusBadRequest
+	case errors.Is(err, service.ErrRootOperation),
+		errors.Is(err, service.ErrNotDirectory),
+		errors.Is(err, service.ErrIsDirectory):
+		return http.StatusBadRequest
+	case errors.Is(err, service.ErrFileExists):
+		return http.StatusConflict
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
 func Browse(w http.ResponseWriter, r *http.Request) {
+	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
+		return
+	}
+
 	rel := r.URL.Query().Get("path")
 	search := r.URL.Query().Get("search")
 	sortBy := r.URL.Query().Get("sortBy")
@@ -37,11 +93,19 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		writeServiceError(w, err)
 		return
 	}
 
-	breadcrumb := buildBreadcrumb(rel)
+	// Use the canonical logical path so links and forms built by the template
+	// always contain slash-separated, traversal-free paths.
+	current, err := service.CleanRel(rel)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	breadcrumb := buildBreadcrumb(current)
 
 	data := struct {
 		Current     string
@@ -51,7 +115,7 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 		SortOrder   string
 		Breadcrumbs []BreadcrumbItem
 	}{
-		Current:     rel,
+		Current:     current,
 		Files:       files,
 		Search:      search,
 		SortBy:      sortBy,
@@ -59,25 +123,28 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 		Breadcrumbs: breadcrumb,
 	}
 
-	tmpl := template.Must(template.ParseFiles("web/templates/index.html"))
-
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.Execute(w, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if err := indexTemplate.Execute(w, data); err != nil {
+		log.Printf("[ERROR] rendering index: %v", err)
 	}
 }
 
 func Download(w http.ResponseWriter, r *http.Request) {
-	rel := r.URL.Query().Get("path")
-	path, err := service.SafePath(rel)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
 		return
 	}
 
-	info, err := os.Stat(path)
+	rel := r.URL.Query().Get("path")
+
+	target, err := service.ResolveExisting(rel)
 	if err != nil {
-		http.Error(w, "File not found", http.StatusNotFound)
+		writeServiceError(w, err)
+		return
+	}
+
+	info, err := os.Stat(target)
+	if err != nil {
+		writeServiceError(w, err)
 		return
 	}
 	if info.IsDir() {
@@ -85,27 +152,32 @@ func Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(path)+`"`)
-	http.ServeFile(w, r, path)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+sanitizeHeaderFilename(path.Base(target))+`"`)
+	http.ServeFile(w, r, target)
 }
 
 func View(w http.ResponseWriter, r *http.Request) {
-	rel := r.URL.Query().Get("path")
-	path, err := service.SafePath(rel)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
 		return
 	}
 
-	ext := strings.ToLower(filepath.Ext(path))
+	rel := r.URL.Query().Get("path")
+
+	target, err := service.ResolveExisting(rel)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	ext := strings.ToLower(path.Ext(target))
 	if !service.PreviewableExtensions[ext] {
 		http.Error(w, "File type not previewable", http.StatusUnsupportedMediaType)
 		return
 	}
 
-	info, err := os.Stat(path)
+	info, err := os.Stat(target)
 	if err != nil {
-		http.Error(w, "File not found", http.StatusNotFound)
+		writeServiceError(w, err)
 		return
 	}
 	if info.IsDir() {
@@ -117,9 +189,9 @@ func View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(target)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		writeServiceError(w, err)
 		return
 	}
 
@@ -127,26 +199,27 @@ func View(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 
-func buildBreadcrumb(path string) []BreadcrumbItem {
-	if path == "" {
-		return []BreadcrumbItem{
-			{
-				Name: "Home",
-				Path: "",
-			},
-		}
+// sanitizeHeaderFilename removes characters that could break the
+// Content-Disposition header.
+func sanitizeHeaderFilename(name string) string {
+	return strings.NewReplacer(`"`, "", "\r", "", "\n", "", `\`, "").Replace(name)
+}
+
+func buildBreadcrumb(logical string) []BreadcrumbItem {
+	result := []BreadcrumbItem{
+		{
+			Name: "Home",
+			Path: "",
+		},
 	}
 
-	var result []BreadcrumbItem
-
-	result = append(result, BreadcrumbItem{
-		Name: "Home",
-		Path: "",
-	})
+	if logical == "" {
+		return result
+	}
 
 	var current string
 
-	for _, part := range strings.Split(path, "/") {
+	for _, part := range strings.Split(logical, "/") {
 		if part == "" {
 			continue
 		}

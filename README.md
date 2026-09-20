@@ -1,4 +1,4 @@
-# Go File Server
+# go-fileserver
 
 A lightweight self-hosted HTTP file server built with Go.
 
@@ -57,21 +57,19 @@ The upload system supports:
 
 Runtime configuration is provided through `config.yaml`.
 
-The intended configuration model allows:
+The configuration model allows:
 
 - Changing the HTTP server port without rebuilding the application.
 - Selecting an external shared directory.
 - Storing shared files on another drive.
 - Configuring upload and preview size limits.
-- Selecting which network interface/IP should be displayed to users.
+- Discovering the available network addresses at startup.
 
 Example:
 
 ```yaml
 server:
   port: "8088"
-  advertise_ip: ""
-  advertise_interface: ""
 
 storage:
   shared_path: "./shared"
@@ -90,8 +88,8 @@ This allows a deployment such as:
 
 ```text
 C:\
-└── FileServer\
-    ├── http_fileserver.exe
+└── go-fileserver\
+    ├── go-fileserver.exe
     └── config.yaml
 
 D:\
@@ -108,7 +106,7 @@ The application binary and configuration can therefore remain on one drive while
 For running the released application:
 
 - Windows or another supported Go runtime environment
-- `http_fileserver.exe`
+- `go-fileserver.exe`
 - `config.yaml`
 
 For development:
@@ -123,45 +121,60 @@ The project intentionally uses Go's standard library where practical.
 After building the application:
 
 ```powershell
-.\http_fileserver.exe
+.\go-fileserver.exe
 ```
 
-The server listens on the configured port.
-
-For example:
+The server listens on all interfaces (`0.0.0.0`) on the configured port, for example:
 
 ```text
-Listening on 0.0.0.0:8088
+HTTP File Server started
+Config:      C:\go-fileserver\config.yaml
+Port:        8088
+Shared path: D:\FileServerData\shared
+
+Available addresses:
+
+  Wi-Fi
+    http://192.168.1.10:8088
+
+  Ethernet
+    http://192.168.1.20:8088
+
+  VMware Network Adapter VMnet1 (virtual adapter)
+    http://192.168.56.1:8088
+
+  Loopback Pseudo-Interface 1 (loopback, this machine only)
+    http://127.0.0.1:8088
 ```
 
-The application also displays the network address that can be used from another device on the same reachable network.
-
-If the computer has multiple network interfaces, such as:
-
-- Wi-Fi
-- Ethernet
-- VPN
-- VirtualBox
-- VMware
-- WSL
-
-the displayed address may depend on the configured network interface/IP.
+The application enumerates the machine's network interfaces and prints the usable IPv4
+addresses, grouped by interface name. Loopback is labelled separately, and interfaces
+whose names look like virtual adapters (VMware, VirtualBox, WSL, Docker, VPN/tunnel)
+are marked as such. The application does not guess which address is the correct LAN
+address; if several candidates exist, all of them are shown.
 
 ## Configuration
+
+`config.yaml` is read from the directory containing the executable, or from the current
+working directory if it is not found next to the executable. An explicit startup error
+lists the locations that were searched when the file cannot be found. Configuration is
+read once at startup: edit `config.yaml`, then restart the application.
 
 Example `config.yaml`:
 
 ```yaml
 server:
   port: "8088"
-  advertise_ip: ""
-  advertise_interface: ""
 
 storage:
   shared_path: "./shared"
   max_upload_size: 104857600
   max_preview_size: 2097152
 ```
+
+An invalid configuration (missing or malformed file, empty or out-of-range port,
+non-positive size limits, empty shared path) stops the application with a message that
+explains what is wrong.
 
 ### Server port
 
@@ -170,29 +183,7 @@ server:
   port: "8088"
 ```
 
-Change this if another application is already using the default port.
-
-### Advertised IP
-
-If the machine has multiple network interfaces, a specific IPv4 address can be configured:
-
-```yaml
-server:
-  advertise_ip: "192.168.1.10"
-```
-
-This affects the address shown to users. It is separate from the address used by the server to bind/listen.
-
-### Advertised interface
-
-Alternatively, an interface can be selected:
-
-```yaml
-server:
-  advertise_interface: "Wi-Fi"
-```
-
-This is useful when the machine has multiple network interfaces and the desired network address should be selected explicitly.
+Both `"8088"` and `8088` are accepted. The value must be between `1` and `65535`.
 
 ### Shared path
 
@@ -203,7 +194,9 @@ storage:
   shared_path: "./shared"
 ```
 
-can be used for a simple portable deployment.
+is resolved against the directory that contains `config.yaml` — not against an arbitrary
+current working directory. This makes a portable deployment behave consistently no matter
+how the application is launched.
 
 An absolute path can also be used:
 
@@ -212,7 +205,12 @@ storage:
   shared_path: "D:/FileServerData/shared"
 ```
 
-This is useful when the application is installed on one drive while file storage is located on another drive.
+Backslashes (`D:\FileServerData\shared`) are equally valid.
+
+This is useful when the application is installed on one drive while file storage is
+located on another drive.
+
+The directory is created automatically if it does not exist.
 
 ### Upload size
 
@@ -236,6 +234,8 @@ The value is specified in bytes.
 
 `2097152` = 2 MB.
 
+The preview limit must not exceed `max_upload_size`.
+
 ## Architecture
 
 The project follows a relatively small layered structure:
@@ -258,15 +258,17 @@ Current project structure:
 ```text
 go-fileserver/
 ├── cmd/
-│   └── http_fileserver/
+│   └── go-fileserver/
 │       └── main.go
 ├── internal/
 │   ├── config/
 │   ├── formatter/
 │   ├── handler/
 │   ├── model/
+│   ├── netinfo/
 │   └── service/
 ├── web/
+│   ├── embed.go
 │   ├── templates/
 │   └── static/
 ├── config.yaml
@@ -276,13 +278,14 @@ go-fileserver/
 
 ### Main components
 
-`cmd/http_fileserver`
+`cmd/go-fileserver`
 
-Application entry point and HTTP route registration.
+Application entry point, HTTP route registration and startup output.
 
 `internal/config`
 
-Runtime configuration management using Viper.
+Runtime configuration: file discovery, YAML loading, validation and path
+resolution.
 
 `internal/handler`
 
@@ -300,9 +303,14 @@ Data structures used by the application.
 
 Presentation helpers such as human-readable file sizes.
 
+`internal/netinfo`
+
+Network interface discovery and classification for the startup output.
+
 `web`
 
-HTML templates and static CSS/JavaScript assets.
+Embedded HTML templates and static CSS/JavaScript assets. They are compiled
+into the binary and are not required at runtime.
 
 ## Security Considerations
 
@@ -342,13 +350,19 @@ go mod download
 Run:
 
 ```bash
-go run ./cmd/http_fileserver
+go run ./cmd/go-fileserver
 ```
 
 Build:
 
 ```bash
 go build ./...
+```
+
+Build a Windows executable (from any platform):
+
+```bash
+GOOS=windows GOARCH=amd64 go build -o go-fileserver.exe ./cmd/go-fileserver
 ```
 
 Test:
@@ -369,16 +383,19 @@ Format:
 gofmt -w .
 ```
 
-## Deployment Goal
+## Deployment
 
-The intended deployment is deliberately small:
+The deployment is deliberately small:
 
 ```text
-http_fileserver.exe
+go-fileserver.exe
 config.yaml
 ```
 
-The web UI assets can be embedded into the Go binary so that the deployed application does not need a separate `web/` directory.
+The web templates and CSS/JavaScript are embedded into the binary with Go's
+`embed` package, so no `web/` directory is required at runtime. `config.yaml` is
+never embedded and remains editable; the shared directory is created
+automatically if it does not exist.
 
 User data remains external and is controlled through `storage.shared_path`.
 
@@ -386,8 +403,8 @@ Example:
 
 ```text
 Application
-C:\FileServer\
-├── http_fileserver.exe
+C:\go-fileserver\
+├── go-fileserver.exe
 └── config.yaml
 
 User data
@@ -416,6 +433,8 @@ Current capabilities include:
 - Breadcrumbs
 - Text preview
 - Runtime configuration
+- Embedded web assets
+- Network address discovery
 
 Planned or potential future improvements include:
 
@@ -423,7 +442,6 @@ Planned or potential future improvements include:
 - ZIP/folder download
 - File-type-specific icons
 - Improved folder actions
-- Automated test coverage
 - Further filesystem security hardening
 - Structured logging
 - Graceful shutdown

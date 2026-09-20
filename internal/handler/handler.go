@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"go-fileserver/internal/config"
 	"go-fileserver/internal/model"
@@ -173,9 +174,16 @@ func Browse(w http.ResponseWriter, r *http.Request) {
 		Search:    search,
 		SortBy:    model.SortBy(sortBy),
 		SortOrder: model.SortOrder(order),
+		Context:   r.Context(),
 	})
 
 	if err != nil {
+		// A cancelled request means the client is gone; there is no one to
+		// render an error page for. A large recursive search stops at the
+		// context check inside the walker.
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
 		writeHTMLServiceError(w, err)
 		return
 	}

@@ -40,3 +40,12 @@ td:last-child{
 td[data-label="Name"]{
     white-space:nowrap;
 }
+
+/* Canonical relative path shown under a search result so nested matches from
+   different folders can be told apart. Display only; links use RelPath. */
+.file-path{
+    display:block;
+    margin-left:calc(1.5em + 6px);
+    font-size:.75rem;
+    color:#64748b;
+}

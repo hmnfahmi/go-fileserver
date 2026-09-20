@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type FileItem struct {
 	Name         string
@@ -36,4 +39,7 @@ type ListOptions struct {
 	Search    string
 	SortBy    SortBy
 	SortOrder SortOrder
+	// Context, when non-nil, lets a recursive search stop early when the HTTP
+	// request is cancelled. A nil Context is treated as context.Background().
+	Context context.Context
 }

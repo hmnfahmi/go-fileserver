@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"go-fileserver/internal/formatter"
 	"go-fileserver/internal/model"
 	"os"
@@ -32,6 +33,33 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 
 	opts = normalizeListOptions(opts)
 
+	ctx := opts.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	var files []model.FileItem
+
+	if opts.Search != "" {
+		// Search descends recursively below the selected directory. The selected
+		// directory is already resolved and validated above; descendants are
+		// validated by the walk itself.
+		files, err = searchRecursive(ctx, target, logical, opts)
+	} else {
+		files, err = readDirectory(target, logical)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	sortFileItems(files, opts)
+
+	return files, nil
+}
+
+// readDirectory lists the direct children of target for normal browsing.
+// Recursive search uses searchRecursive instead.
+func readDirectory(target, logical string) ([]model.FileItem, error) {
 	entries, err := os.ReadDir(target)
 	if err != nil {
 		// The directory may have been removed or become unreadable between
@@ -46,31 +74,39 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 			continue
 		}
 
-		name := entry.Name()
-		if opts.Search != "" {
-			if !strings.Contains(
-				strings.ToLower(name),
-				strings.ToLower(opts.Search),
-			) {
-				continue
-			}
-		}
-
-		ext := strings.ToLower(filepath.Ext(entry.Name()))
-
-		files = append(files, model.FileItem{
-			Name:         name,
-			RelPath:      path.Join(logical, name),
-			IsDir:        entry.IsDir(),
-			Size:         info.Size(),
-			SizeText:     formatter.FormatSize(info.Size()),
-			Modified:     info.ModTime(),
-			ModifiedText: info.ModTime().Format("2006-01-02"),
-			Previewable:  !entry.IsDir() && ClassifyPreview(ext) != PreviewNone,
-			Kind:         model.ClassifyFileKind(name, entry.IsDir()),
-		})
+		files = append(files, fileItemFromEntry(entry.Name(), path.Join(logical, entry.Name()), info))
 	}
 
+	return files, nil
+}
+
+// fileItemFromEntry builds the view model for a single directory entry. relPath
+// is the canonical, slash-separated path relative to the shared root and is the
+// only value used to build action links, so a recursive result keeps its full
+// location instead of collapsing to its base name.
+func fileItemFromEntry(name, relPath string, info os.FileInfo) model.FileItem {
+	isDir := info.IsDir()
+	ext := strings.ToLower(filepath.Ext(name))
+
+	return model.FileItem{
+		Name:         name,
+		RelPath:      relPath,
+		IsDir:        isDir,
+		Size:         info.Size(),
+		SizeText:     formatter.FormatSize(info.Size()),
+		Modified:     info.ModTime(),
+		ModifiedText: info.ModTime().Format("2006-01-02"),
+		Previewable:  !isDir && ClassifyPreview(ext) != PreviewNone,
+		Kind:         model.ClassifyFileKind(name, isDir),
+	}
+}
+
+// sortFileItems orders a listing deterministically: directories first, then the
+// requested sort key and order, then a case-insensitive name fallback, then the
+// canonical relative path. The final relative-path tiebreak makes recursive
+// results stable even when identically named entries appear in different
+// directories, independent of traversal order.
+func sortFileItems(files []model.FileItem, opts model.ListOptions) {
 	sort.SliceStable(files, func(i, j int) bool {
 		a := files[i]
 		b := files[j]
@@ -107,10 +143,14 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 			}
 		}
 
-		return strings.ToLower(a.Name) < strings.ToLower(b.Name)
-	})
+		na := strings.ToLower(a.Name)
+		nb := strings.ToLower(b.Name)
+		if na != nb {
+			return na < nb
+		}
 
-	return files, nil
+		return a.RelPath < b.RelPath
+	})
 }
 
 func normalizeListOptions(opts model.ListOptions) model.ListOptions {

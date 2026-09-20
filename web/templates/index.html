@@ -130,6 +130,7 @@
                         {{else}}
                             <span class="file-icon" aria-hidden="true">{{icon .Kind}}</span> {{.Name}}
                         {{end}}
+                        {{if $.Search}}{{if ne .RelPath .Name}}<span class="file-path">{{.RelPath}}</span>{{end}}{{end}}
                     </td>
 
                     <td data-label="Size">

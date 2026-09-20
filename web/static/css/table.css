@@ -1,0 +1,30 @@
+table{
+    width:100%;
+    border-collapse:collapse;
+    overflow:visible;
+}
+
+thead{
+    background:#1976d2;
+    color:#fff;
+}
+
+th,
+td{
+    padding:14px;
+    text-align:left;
+    border-bottom:1px solid #eee;
+    vertical-align:middle;
+}
+
+tbody tr:hover{
+    background:#fafafa;
+}
+
+td.modified{
+    white-space:nowrap;
+}
+
+td:last-child{
+    overflow:visible;
+}

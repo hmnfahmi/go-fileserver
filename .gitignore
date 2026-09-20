@@ -1,0 +1,118 @@
+# ==========================================
+# Go
+# ==========================================
+
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Coverage
+*.out
+coverage.html
+coverage.txt
+
+# Go workspace
+go.work
+go.work.sum
+
+# ==========================================
+# Build / Release
+# ==========================================
+
+bin/
+build/
+dist/
+release/
+
+# ==========================================
+# Application Runtime Data
+# ==========================================
+
+# Default shared storage
+shared/
+
+# Temporary files
+tmp/
+temp/
+
+# Runtime logs
+*.log
+logs/
+
+# ==========================================
+# OS / IDE
+# ==========================================
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+
+# Linux
+*~
+
+# VS Code
+.vscode/
+
+# JetBrains / GoLand
+.idea/
+*.iml
+
+# ==========================================
+# Local Environment / Secrets
+# ==========================================
+
+.env
+.env.*
+!.env.example
+
+*.local
+*.secret
+*.secrets
+
+# Local configuration overrides
+config.local.yaml
+config.local.yml
+
+# ==========================================
+# AI Coding / Agent Tooling
+# ==========================================
+
+# OpenCode
+opencode.json
+opencode.jsonc
+.opencode/
+
+# Agent instructions / internal AI context
+AGENTS.md
+AGENT.md
+
+# Other AI coding assistant configuration
+.clinerules/
+.cline/
+.cursor/
+.cursorignore
+.cursorrules
+.windsurfrules
+
+# Claude Code
+.claude/
+
+# GitHub Copilot custom instructions
+.github/copilot-instructions.md
+
+# ==========================================
+# Local AI / MCP configuration
+# ==========================================
+
+.mcp.json
+mcp.json

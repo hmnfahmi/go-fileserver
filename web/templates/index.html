@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple HTTP File Server by GO</title>
+    <link rel="stylesheet" href="/static/css/reset.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/forms.css">
+    <link rel="stylesheet" href="/static/css/button.css">
+    <link rel="stylesheet" href="/static/css/responsive.css">
+    <link rel="stylesheet" href="/static/css/table.css">
+    <link rel="stylesheet" href="/static/css/dropdown.css">
+    <link rel="stylesheet" href="/static/css/upload.css">
+</head>
+<body>
+    <div class="container">
+        <h1>File Browser</h1>
+        <div class="toolbar">
+            <!-- search -->
+            <form action="/" method="GET" class="search-form">
+                <input type="hidden" name="path" value="{{.Current}}">
+                <input
+                    type="search"
+                    name="search"
+                    value="{{.Search}}"
+                    placeholder="Search file or folder...">
+                <select name="sortBy" onchange="this.form.submit()">
+                    <option value="name" {{if eq .SortBy "name"}}selected{{end}}>
+                        Name
+                    </option>
+                    <option value="size" {{if eq .SortBy "size"}}selected{{end}}>
+                        Size
+                    </option>
+                    <option value="modified" {{if eq .SortBy "modified"}}selected{{end}}>
+                        Modified
+                    </option>
+                </select>
+                <select name="order" onchange="this.form.submit()">
+                    <option value="asc" {{if eq .SortOrder "asc"}}selected{{end}}>
+                        Asc
+                    </option>
+                    <option value="desc" {{if eq .SortOrder "desc"}}selected{{end}}>
+                        Desc
+                    </option>
+                </select>
+
+                <button type="submit">
+                    Search
+                </button>
+            </form>
+            <!-- upload -->
+            <form
+                id="upload-form"
+                action="/upload?path={{.Current}}"
+                method="POST"
+                enctype="multipart/form-data">
+
+                <div
+                    id="upload-zone"
+                    class="upload-zone"
+                    tabindex="0"
+                    role="button"
+                    aria-label="Choose file to upload">
+
+                    <div class="upload-zone-icon">
+                        📁
+                    </div>
+
+                    <div class="upload-zone-title">
+                        Drop file here
+                    </div>
+
+                    <div class="upload-zone-description">
+                        or click to browse
+                    </div>
+
+                    <input
+                        id="upload-file"
+                        type="file"
+                        name="file"
+                        multiple>
+                </div>
+
+                <div
+                    id="upload-selected"
+                    class="upload-selected">
+                </div>
+
+                <div
+                    id="upload-warning"
+                    class="upload-warning"
+                    role="alert">
+                </div>
+
+                <div class="upload-actions">
+                    <button type="submit">
+                        Upload
+                    </button>
+                </div>
+
+            </form>
+        </div>
+
+        <nav class="breadcrumb">
+            {{range .Breadcrumbs}}
+                <a href="/?path={{.Path}}">{{.Name}}</a> / 
+            {{end}}
+        </nav>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Size</th>
+                    <th>Modified Date</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+
+            <tbody>
+            {{range .Files}}
+                <tr>
+                    <td data-label="Name">
+                        {{if .IsDir}}
+                            📂 <a href="/?path={{.RelPath}}">{{.Name}}</a>
+                        {{else}}
+                            📄 {{.Name}}
+                        {{end}}
+                    </td>
+
+                    <td data-label="Size">
+                        {{if .IsDir}}-{{else}}{{.SizeText}}{{end}}
+                    </td>
+
+                    <td data-label="Modified" class="modified">
+                        {{.ModifiedText}}
+                    </td>
+                    {{if not .IsDir}}
+                    <td data-label="Action">
+                        <div class="action-menu">
+                            <button
+                                type="button"
+                                class="action-button"
+                                onclick="toggleMenu(this)">
+                                ⋮
+                            </button>
+                            <div class="action-dropdown">
+                                {{if .Previewable}}
+                                <a href="/view?path={{.RelPath}}">
+                                    👁 Preview
+                                </a>
+                                {{end}}
+                                <a href="/download?path={{.RelPath}}">
+                                    ⬇ Download
+                                </a>
+                                <hr>
+                                <button
+                                    type="button"
+                                    onclick="renameFile('{{.RelPath}}','{{.Name}}')">
+                                    ✏ Rename
+                                </button>
+                                <form
+                                    action="/delete"
+                                    method="POST"
+                                    onsubmit="return confirm('Delete {{.Name}} ?')">
+                                    <input
+                                        type="hidden"
+                                        name="path"
+                                        value="{{.RelPath}}">
+                                    <button
+                                        type="submit"
+                                        class="danger">
+                                        🗑 Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                    {{end}}
+                </tr>
+            {{end}}
+            </tbody>
+        </table>
+    </div>
+    <script>
+    function renameFile(path,currentName){
+        const newName = prompt("Rename file", currentName);
+        if(newName===null){
+            return;
+        }
+        if(newName.trim()===""){
+            return;
+        }
+
+        const form=document.createElement("form");
+
+        form.method="POST";
+        form.action="/rename";
+
+        const p=document.createElement("input");
+        p.type="hidden";
+        p.name="path";
+        p.value=path;
+
+        const n=document.createElement("input");
+        n.type="hidden";
+        n.name="newname";
+        n.value=newName;
+
+        form.appendChild(p);
+        form.appendChild(n);
+
+        document.body.appendChild(form);
+
+        form.submit();
+    }
+
+    </script>
+    
+<script src="/static/js/dropdown.js"></script>
+<script src="/static/js/upload.js"></script>
+</body>
+</html>

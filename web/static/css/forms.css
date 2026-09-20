@@ -1,0 +1,28 @@
+/* input[type=file]{
+    flex:1;
+    min-width:180px;
+} */
+
+.search-form{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+}
+
+.search-form input[type="search"]{
+    flex:1;
+    min-width:220px;
+    padding:8px 10px;
+}
+
+.search-form select{
+    padding:8px 10px;
+    border:1px solid #ccc;
+    border-radius:8px;
+    background:#fff;
+}
+
+.search-form button{
+    white-space:nowrap;
+}

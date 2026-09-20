@@ -1,0 +1,42 @@
+.container{
+    width:min(1000px,95%);
+    margin:24px auto;
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 8px 24px rgba(0,0,0,.08);
+}
+
+h1{
+    margin-bottom:20px;
+    font-size:2rem;
+}
+
+.toolbar{
+    margin-bottom:18px;
+}
+
+.toolbar form{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+}
+
+.breadcrumb{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:16px;
+    font-size:.95rem;
+}
+
+.breadcrumb a{
+    color:#2563eb;
+    text-decoration:none;
+}
+
+.breadcrumb a:hover{
+    text-decoration:underline;
+}
+

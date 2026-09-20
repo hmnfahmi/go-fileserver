@@ -1,0 +1,7 @@
+server:
+  port: "8088"
+
+storage:
+  shared_path: "./shared"
+  max_upload_size: 104857600 # 100 MB in bytes
+  max_preview_size: 2097152 # 2MB in bytes

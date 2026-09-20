@@ -1,0 +1,61 @@
+@media (max-width:768px){
+
+    h1{
+        font-size:1.7rem;
+    }
+
+    table,
+    thead,
+    tbody,
+    th,
+    td,
+    tr{
+        display:block;
+    }
+
+    thead{
+        display:none;
+    }
+
+    tr{
+        background:#fff;
+        border:1px solid #e5e5e5;
+        border-radius:12px;
+        margin-bottom:15px;
+        padding:10px;
+    }
+
+    td{
+        border:none;
+        display:flex;
+        justify-content:space-between;
+        gap:12px;
+        padding:10px 0;
+    }
+
+    td::before{
+        content:attr(data-label);
+        font-weight:bold;
+        color:#666;
+        min-width:70px;
+    }
+
+    .btn{
+        display:block;
+        width:100%;
+        text-align:center;
+        margin-top:6px;
+    }
+
+    .upload-zone{
+        padding: 24px 16px;
+    }
+
+    .upload-actions{
+        justify-content: stretch;
+    }
+
+    .upload-actions button{
+        width: 100%;
+    }
+}

@@ -259,6 +259,10 @@ func PublicMessage(err error) string {
 		return "Access denied"
 	case errors.Is(err, ErrNotFound):
 		return "File or folder not found"
+	case errors.Is(err, os.ErrPermission):
+		return "Access denied"
+	case errors.Is(err, os.ErrNotExist):
+		return "File or folder not found"
 	case errors.Is(err, ErrInvalidPath):
 		return "Invalid path"
 	case errors.Is(err, ErrInvalidName):

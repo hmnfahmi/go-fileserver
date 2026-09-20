@@ -7,8 +7,10 @@ import (
 	"go-fileserver/internal/service"
 	"io"
 	"log"
+	"mime"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type uploadResponse struct {
@@ -35,7 +37,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 
 	mr, err := r.MultipartReader()
 	if err != nil {
-		http.Error(w, "Invalid upload request", http.StatusBadRequest)
+		writeUploadBodyError(w, err)
 		return
 	}
 
@@ -53,11 +55,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err != nil {
-			http.Error(
-				w,
-				"Failed reading upload (possibly too large)",
-				http.StatusBadRequest,
-			)
+			writeUploadBodyError(w, err)
 			return
 		}
 
@@ -95,6 +93,14 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 			)
 
 			continue
+		}
+
+		// A file that pushes the whole request past MaxUploadSize fails here
+		// while its body is being copied. Report the request as too large
+		// rather than as a per-file failure.
+		if isRequestTooLarge(saveErr) {
+			writeUploadBodyError(w, saveErr)
+			return
 		}
 
 		if errors.Is(saveErr, service.ErrFileExists) {
@@ -142,7 +148,7 @@ func Upload(w http.ResponseWriter, r *http.Request) {
 }
 
 func writeUploadResponse(w http.ResponseWriter, r *http.Request, dirRel string, result uploadResponse) {
-	wantsJSON := r.Header.Get("Accept") == "application/json"
+	wantsJSON := wantsJSONResponse(r)
 
 	if !wantsJSON {
 		if len(result.Conflicts) > 0 || len(result.Failed) > 0 {
@@ -169,4 +175,53 @@ func writeUploadResponse(w http.ResponseWriter, r *http.Request, dirRel string, 
 	if err := json.NewEncoder(w).Encode(result); err != nil {
 		log.Printf("[UPLOAD] failed writing response: %v", err)
 	}
+}
+
+// isRequestTooLarge reports whether err is the *http.MaxBytesError produced when
+// a request body exceeds the limit installed by http.MaxBytesReader.
+func isRequestTooLarge(err error) bool {
+	var maxErr *http.MaxBytesError
+	return errors.As(err, &maxErr)
+}
+
+// writeUploadBodyError distinguishes an oversized request body from a malformed
+// multipart request. MaxUploadSize limits the whole request, so the
+// *http.MaxBytesError is reported as 413 rather than a generic 400.
+func writeUploadBodyError(w http.ResponseWriter, err error) {
+	if isRequestTooLarge(err) {
+		http.Error(w, "Upload too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	http.Error(w, "Invalid upload request", http.StatusBadRequest)
+}
+
+// wantsJSONResponse reports whether the client explicitly accepts a JSON
+// response. The Accept header is parsed as a comma-separated list of media types
+// so normal client forms such as "application/json; charset=utf-8" or
+// "application/json, text/plain" are recognised, while lookalikes such as
+// "application/json-malicious" are not.
+//
+// Wildcards ("*/*", "application/*") are deliberately NOT treated as JSON: a
+// browser submitting the upload form normally sends
+// "text/html,...,*/*;q=0.8", and that fallback must keep the redirect
+// behaviour. JSON is returned only when application/json is named explicitly.
+func wantsJSONResponse(r *http.Request) bool {
+	accept := r.Header.Get("Accept")
+	if accept == "" {
+		return false
+	}
+
+	for _, part := range strings.Split(accept, ",") {
+		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(part))
+		if err != nil {
+			continue
+		}
+
+		if mediaType == "application/json" {
+			return true
+		}
+	}
+
+	return false
 }

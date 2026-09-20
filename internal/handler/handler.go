@@ -54,6 +54,13 @@ func statusForError(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, service.ErrNotFound):
 		return http.StatusNotFound
+	// Filesystem errors can still surface raw when a file disappears or becomes
+	// unreadable between ResolveExisting and a later operation. Classify them
+	// centrally so a concurrent delete becomes 404 rather than 500.
+	case errors.Is(err, os.ErrPermission):
+		return http.StatusForbidden
+	case errors.Is(err, os.ErrNotExist):
+		return http.StatusNotFound
 	case errors.Is(err, service.ErrInvalidPath),
 		errors.Is(err, service.ErrInvalidName):
 		return http.StatusBadRequest

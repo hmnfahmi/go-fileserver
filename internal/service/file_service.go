@@ -67,14 +67,6 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 		})
 	}
 
-	sort.Slice(files, func(i, j int) bool {
-		if files[i].IsDir != files[j].IsDir {
-			return files[i].IsDir
-		}
-		return files[i].Name < files[j].Name
-	})
-
-	//sort
 	sort.SliceStable(files, func(i, j int) bool {
 		a := files[i]
 		b := files[j]

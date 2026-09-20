@@ -236,6 +236,8 @@ func TestBuildMuxRegistersRoutes(t *testing.T) {
 		{"upload method guard", http.MethodGet, "/upload", http.StatusMethodNotAllowed, ""},
 		{"delete method guard", http.MethodGet, "/delete", http.StatusMethodNotAllowed, ""},
 		{"rename method guard", http.MethodGet, "/rename", http.StatusMethodNotAllowed, ""},
+		{"mkdir method guard", http.MethodGet, "/mkdir", http.StatusMethodNotAllowed, ""},
+		{"create-file method guard", http.MethodGet, "/create-file", http.StatusMethodNotAllowed, ""},
 	}
 
 	for _, tc := range cases {

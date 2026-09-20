@@ -1,0 +1,77 @@
+/* Create-folder / create-file UI. A native <dialog> keeps this dependency-free
+   and reuses the existing card/button visual language. */
+
+.toolbar-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:12px;
+}
+
+.new-menu-button{
+    width:auto;
+    height:auto;
+    padding:10px 16px;
+    border-radius:8px;
+    border:none;
+    background:#1976d2;
+    color:#fff;
+    font-size:14px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.new-menu-button:hover{
+    background:#125ea9;
+}
+
+.new-dialog{
+    width:min(360px,90%);
+    border:none;
+    border-radius:14px;
+    padding:0;
+    box-shadow:0 20px 50px rgba(0,0,0,.25);
+}
+
+.new-dialog::backdrop{
+    background:rgba(15,23,42,.45);
+}
+
+.new-dialog form{
+    padding:20px;
+}
+
+.new-dialog h2{
+    margin-bottom:14px;
+    font-size:1.2rem;
+}
+
+.new-dialog label{
+    display:block;
+    margin-bottom:6px;
+    font-size:.9rem;
+    color:#475569;
+}
+
+.new-dialog input[type="text"]{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid #cbd5e1;
+    border-radius:8px;
+    font-size:.95rem;
+}
+
+.new-dialog-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:18px;
+}
+
+.new-dialog-actions button.cancel{
+    background:#eceff1;
+    color:#334155;
+}
+
+.new-dialog-actions button.cancel:hover{
+    background:#d8dee3;
+}

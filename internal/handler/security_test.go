@@ -203,6 +203,8 @@ func TestMethodNotAllowedAllowHeaders(t *testing.T) {
 		{"upload", Upload, http.MethodGet, "POST"},
 		{"delete", Delete, http.MethodGet, "POST"},
 		{"rename", Rename, http.MethodGet, "POST"},
+		{"mkdir", CreateFolder, http.MethodGet, "POST"},
+		{"create-file", CreateFile, http.MethodGet, "POST"},
 	}
 
 	for _, tc := range cases {
@@ -249,6 +251,23 @@ func TestMethodRejectionPrecedesMutation(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "gone.txt")); !os.IsNotExist(err) {
 		t.Errorf("rename happened despite a rejected GET /rename")
+	}
+
+	mkdirRec := httptest.NewRecorder()
+	CreateFolder(mkdirRec, httptest.NewRequest(http.MethodGet, "/mkdir?path=&name=made-dir", nil))
+	if mkdirRec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET /mkdir status = %d, want 405", mkdirRec.Code)
+	}
+	createRec := httptest.NewRecorder()
+	CreateFile(createRec, httptest.NewRequest(http.MethodGet, "/create-file?path=&name=made.txt", nil))
+	if createRec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET /create-file status = %d, want 405", createRec.Code)
+	}
+	if _, err := os.Stat(filepath.Join(root, "made-dir")); !os.IsNotExist(err) {
+		t.Errorf("directory was created by a rejected GET /mkdir")
+	}
+	if _, err := os.Stat(filepath.Join(root, "made.txt")); !os.IsNotExist(err) {
+		t.Errorf("file was created by a rejected GET /create-file")
 	}
 }
 

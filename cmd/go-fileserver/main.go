@@ -144,6 +144,8 @@ func buildMux() (*http.ServeMux, error) {
 	mux.HandleFunc("/upload", handler.Upload)
 	mux.HandleFunc("/delete", handler.Delete)
 	mux.HandleFunc("/rename", handler.Rename)
+	mux.HandleFunc("/mkdir", handler.CreateFolder)
+	mux.HandleFunc("/create-file", handler.CreateFile)
 
 	mux.Handle("/static/",
 		http.StripPrefix("/static/",

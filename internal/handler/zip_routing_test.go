@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,8 @@ func newZipTestMux() *http.ServeMux {
 	mux.HandleFunc("/upload", Upload)
 	mux.HandleFunc("/delete", Delete)
 	mux.HandleFunc("/rename", Rename)
+	mux.HandleFunc("/mkdir", CreateFolder)
+	mux.HandleFunc("/create-file", CreateFile)
 	return mux
 }
 
@@ -191,6 +194,24 @@ func TestUploadRenameDeleteRegressionWithZipRoute(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "renamed.txt")); !os.IsNotExist(err) {
 		t.Errorf("renamed.txt still exists after delete")
+	}
+
+	// Create folder/file through the router.
+	mkRec := httptest.NewRecorder()
+	mux.ServeHTTP(mkRec, postCreateForm("/mkdir", url.Values{"path": {""}, "name": {"made-dir"}}))
+	if mkRec.Code != http.StatusSeeOther {
+		t.Fatalf("mkdir status = %d, want 303", mkRec.Code)
+	}
+	cfRec := httptest.NewRecorder()
+	mux.ServeHTTP(cfRec, postCreateForm("/create-file", url.Values{"path": {""}, "name": {"made.txt"}}))
+	if cfRec.Code != http.StatusSeeOther {
+		t.Fatalf("create-file status = %d, want 303", cfRec.Code)
+	}
+	if info, err := os.Stat(filepath.Join(root, "made-dir")); err != nil || !info.IsDir() {
+		t.Errorf("made-dir was not created through the router (err=%v)", err)
+	}
+	if info, err := os.Stat(filepath.Join(root, "made.txt")); err != nil || info.Size() != 0 {
+		t.Errorf("made.txt was not created through the router (err=%v)", err)
 	}
 }
 

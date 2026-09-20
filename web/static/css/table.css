@@ -28,3 +28,15 @@ td.modified{
 td:last-child{
     overflow:visible;
 }
+
+.file-icon{
+    display:inline-block;
+    min-width:1.5em;
+    margin-right:6px;
+    line-height:1;
+    text-align:center;
+}
+
+td[data-label="Name"]{
+    white-space:nowrap;
+}

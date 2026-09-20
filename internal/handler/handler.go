@@ -7,6 +7,7 @@ import (
 	"go-fileserver/internal/service"
 	simpleweb "go-fileserver/web"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -14,8 +15,14 @@ import (
 	"strings"
 )
 
-// indexTemplate is parsed from the embedded template at startup.
-var indexTemplate = template.Must(template.ParseFS(simpleweb.Templates, "templates/index.html"))
+// indexTemplate is parsed from the embedded template at startup. The func map
+// supplies presentation-only helpers; none of them can influence path handling.
+var indexTemplate = template.Must(
+	template.New("index.html").Funcs(template.FuncMap{
+		"icon":    iconForKind,
+		"isImage": isImageKind,
+	}).ParseFS(simpleweb.Templates, "templates/index.html"),
+)
 
 type BreadcrumbItem struct {
 	Name string
@@ -61,6 +68,8 @@ func statusForError(err error) int {
 		return http.StatusForbidden
 	case errors.Is(err, os.ErrNotExist):
 		return http.StatusNotFound
+	case errors.Is(err, os.ErrExist):
+		return http.StatusConflict
 	case errors.Is(err, service.ErrInvalidPath),
 		errors.Is(err, service.ErrInvalidName):
 		return http.StatusBadRequest
@@ -163,6 +172,77 @@ func Download(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, target)
 }
 
+// Zip streams a directory (or a single regular file) as a ZIP archive. The
+// archive layout and the symlink policy live in the service layer; this handler
+// only validates the request, sets safe headers and streams the result.
+//
+// The entry list is built before streaming, so missing, escaping and
+// non-archivable targets are reported with a proper status. A failure that
+// happens after streaming has begun cannot change the status code; the response
+// is truncated rather than replaced with a fake success and the error is logged.
+func Zip(w http.ResponseWriter, r *http.Request) {
+	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
+		return
+	}
+
+	entries, download, err := service.PrepareZip(r.URL.Query().Get("path"))
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	filename := sanitizeHeaderFilename(download + ".zip")
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+
+	// Content-Length is intentionally omitted: the archive is streamed and its
+	// final size is unknown without buffering the whole thing.
+	if r.Method == http.MethodHead {
+		return
+	}
+
+	streamZip(w, entries)
+}
+
+// zipStreamWriter counts the bytes written to the response so Zip can tell
+// whether the status line has already been sent.
+type zipStreamWriter struct {
+	w io.Writer
+	n int64
+}
+
+func (s *zipStreamWriter) Write(p []byte) (int, error) {
+	n, err := s.w.Write(p)
+	s.n += int64(n)
+	return n, err
+}
+
+// streamZip writes the archive and separates the two failure modes:
+//
+//   - If nothing has been written yet, the response is still uncommitted, so a
+//     clean service error (for example a file that vanished after the entry
+//     list was built) is reported with the usual status and message.
+//   - Once any byte has been written the status is already 200 and cannot be
+//     changed. The archive is left truncated rather than completed, so the
+//     client's extractor fails instead of receiving a plausible-looking but
+//     incomplete archive. This limitation is inherent to streaming without
+//     buffering the whole archive.
+func streamZip(w http.ResponseWriter, entries []service.ZipEntry) {
+	stream := &zipStreamWriter{w: w}
+
+	if err := service.WriteZip(stream, entries); err != nil {
+		if stream.n == 0 {
+			w.Header().Del("Content-Type")
+			w.Header().Del("Content-Disposition")
+			writeServiceError(w, err)
+			return
+		}
+
+		log.Printf("[ERROR] zip archive failed after streaming started: %v", err)
+	}
+}
+
 func View(w http.ResponseWriter, r *http.Request) {
 	if !allowMethods(w, r, http.MethodGet, http.MethodHead) {
 		return
@@ -176,8 +256,8 @@ func View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ext := strings.ToLower(path.Ext(target))
-	if !service.PreviewableExtensions[ext] {
+	kind := service.ClassifyPreview(strings.ToLower(path.Ext(target)))
+	if kind == service.PreviewNone {
 		http.Error(w, "File type not previewable", http.StatusUnsupportedMediaType)
 		return
 	}
@@ -196,6 +276,11 @@ func View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if kind == service.PreviewImage {
+		previewImage(w, r, target, info)
+		return
+	}
+
 	data, err := os.ReadFile(target)
 	if err != nil {
 		writeServiceError(w, err)
@@ -204,6 +289,60 @@ func View(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Write(data)
+}
+
+// previewImage streams an image preview. The extension only selected the
+// candidate file: the actual bytes are sniffed and anything that is not an image
+// is rejected, so a renamed file cannot change the response type. http.ServeContent
+// handles HEAD, range requests and Content-Length without buffering the file.
+func previewImage(w http.ResponseWriter, r *http.Request, target string, info os.FileInfo) {
+	f, err := os.Open(target)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	defer f.Close()
+
+	head := make([]byte, 512)
+	n, err := io.ReadFull(f, head)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		writeServiceError(w, err)
+		return
+	}
+	head = head[:n]
+
+	contentType := http.DetectContentType(head)
+	if !isImageContentType(contentType) {
+		http.Error(w, "File type not previewable", http.StatusUnsupportedMediaType)
+		return
+	}
+
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	// Serve inline so the browser renders it instead of downloading.
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src 'self'; sandbox")
+
+	http.ServeContent(w, r, path.Base(target), info.ModTime(), f)
+}
+
+// isImageContentType reports whether a sniffed MIME type is a raster image that
+// browsers can render inline. SVG is never returned by DetectContentType, and is
+// excluded on purpose, so no SVG can be previewed as an image.
+func isImageContentType(contentType string) bool {
+	if semi := strings.IndexByte(contentType, ';'); semi >= 0 {
+		contentType = strings.TrimSpace(contentType[:semi])
+	}
+
+	switch contentType {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
 }
 
 // sanitizeHeaderFilename removes characters that could break the

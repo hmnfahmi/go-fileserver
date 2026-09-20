@@ -22,6 +22,8 @@ func TestPublicMessageClassifiesOSErrors(t *testing.T) {
 		{"wrapped not exist", fmt.Errorf("stat: %w", os.ErrNotExist), "File or folder not found"},
 		{"raw permission", os.ErrPermission, "Access denied"},
 		{"wrapped permission", fmt.Errorf("open: %w", os.ErrPermission), "Access denied"},
+		{"raw exist", os.ErrExist, "File already exists"},
+		{"wrapped exist", fmt.Errorf("rename: %w", os.ErrExist), "File already exists"},
 		{"generic", fmt.Errorf("boom"), "Operation failed"},
 	}
 

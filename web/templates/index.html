@@ -123,9 +123,9 @@
                 <tr>
                     <td data-label="Name">
                         {{if .IsDir}}
-                            📂 <a href="/?path={{.RelPath}}">{{.Name}}</a>
+                            <span class="file-icon" aria-hidden="true">{{icon .Kind}}</span> <a href="/?path={{.RelPath}}">{{.Name}}</a>
                         {{else}}
-                            📄 {{.Name}}
+                            <span class="file-icon" aria-hidden="true">{{icon .Kind}}</span> {{.Name}}
                         {{end}}
                     </td>
 
@@ -136,7 +136,6 @@
                     <td data-label="Modified" class="modified">
                         {{.ModifiedText}}
                     </td>
-                    {{if not .IsDir}}
                     <td data-label="Action">
                         <div class="action-menu">
                             <button
@@ -146,9 +145,14 @@
                                 ⋮
                             </button>
                             <div class="action-dropdown">
+                                {{if .IsDir}}
+                                <a href="/zip?path={{.RelPath}}">
+                                    🗜️ Download ZIP
+                                </a>
+                                {{else}}
                                 {{if .Previewable}}
                                 <a href="/view?path={{.RelPath}}">
-                                    👁 Preview
+                                    {{if isImage .Kind}}🖼 Image{{else}}👁 Preview{{end}}
                                 </a>
                                 {{end}}
                                 <a href="/download?path={{.RelPath}}">
@@ -174,10 +178,10 @@
                                         🗑 Delete
                                     </button>
                                 </form>
+                                {{end}}
                             </div>
                         </div>
                     </td>
-                    {{end}}
                 </tr>
             {{end}}
             </tbody>

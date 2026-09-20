@@ -153,6 +153,7 @@ func TestHeadRequestsHaveNoBody(t *testing.T) {
 	mux.HandleFunc("/", Browse)
 	mux.HandleFunc("/view", View)
 	mux.HandleFunc("/download", Download)
+	mux.HandleFunc("/zip", Zip)
 
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -164,6 +165,7 @@ func TestHeadRequestsHaveNoBody(t *testing.T) {
 		{"/", http.StatusOK},
 		{"/view?path=f.txt", http.StatusOK},
 		{"/download?path=f.txt", http.StatusOK},
+		{"/zip?path=", http.StatusOK},
 	}
 
 	for _, tc := range cases {
@@ -197,6 +199,7 @@ func TestMethodNotAllowedAllowHeaders(t *testing.T) {
 		{"browse", Browse, http.MethodPut, "GET, HEAD"},
 		{"view", View, http.MethodPost, "GET, HEAD"},
 		{"download", Download, http.MethodPost, "GET, HEAD"},
+		{"zip", Zip, http.MethodPost, "GET, HEAD"},
 		{"upload", Upload, http.MethodGet, "POST"},
 		{"delete", Delete, http.MethodGet, "POST"},
 		{"rename", Rename, http.MethodGet, "POST"},

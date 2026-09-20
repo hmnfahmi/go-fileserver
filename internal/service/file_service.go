@@ -23,7 +23,8 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 
 	info, err := os.Stat(target)
 	if err != nil {
-		return nil, err
+		// The directory may have been removed after resolution.
+		return nil, classifyFSError(err)
 	}
 	if !info.IsDir() {
 		return nil, ErrNotDirectory
@@ -33,7 +34,9 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 
 	entries, err := os.ReadDir(target)
 	if err != nil {
-		return nil, err
+		// The directory may have been removed or become unreadable between
+		// Stat and ReadDir.
+		return nil, classifyFSError(err)
 	}
 
 	var files []model.FileItem
@@ -63,7 +66,8 @@ func List(opts model.ListOptions) ([]model.FileItem, error) {
 			SizeText:     formatter.FormatSize(info.Size()),
 			Modified:     info.ModTime(),
 			ModifiedText: info.ModTime().Format("2006-01-02"),
-			Previewable:  !entry.IsDir() && PreviewableExtensions[ext],
+			Previewable:  !entry.IsDir() && ClassifyPreview(ext) != PreviewNone,
+			Kind:         model.ClassifyFileKind(name, entry.IsDir()),
 		})
 	}
 

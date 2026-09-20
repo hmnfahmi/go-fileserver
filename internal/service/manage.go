@@ -30,17 +30,15 @@ func Delete(rel string) error {
 
 	info, err := os.Lstat(target)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return ErrNotFound
-		}
-		return err
+		// The target may have been removed after it was resolved.
+		return classifyFSError(err)
 	}
 
 	if isLinkLike(info) {
 		return removeLink(target)
 	}
 
-	return os.RemoveAll(target)
+	return classifyFSError(os.RemoveAll(target))
 }
 
 // removeLink deletes a symlink or junction itself without following it. The
@@ -51,7 +49,7 @@ func removeLink(target string) error {
 	resolved, err := filepath.EvalSymlinks(target)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return os.Remove(target)
+			return classifyFSError(os.Remove(target))
 		}
 		return err
 	}
@@ -65,7 +63,7 @@ func removeLink(target string) error {
 		return ErrAccessDenied
 	}
 
-	return os.Remove(target)
+	return classifyFSError(os.Remove(target))
 }
 
 // isLinkLike reports whether info describes a symbolic link, junction or other
@@ -113,5 +111,9 @@ func Rename(rel string, newName string) error {
 		return ErrFileExists
 	}
 
-	return os.Rename(oldPath, newPath)
+	// The source can disappear, the destination parent can disappear, or the
+	// destination can appear between the conflict check above and the rename.
+	// classifyFSError turns those into ErrNotFound / ErrFileExists while
+	// leaving genuine failures untouched.
+	return classifyFSError(os.Rename(oldPath, newPath))
 }

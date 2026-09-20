@@ -140,6 +140,7 @@ func buildMux() (*http.ServeMux, error) {
 	mux.HandleFunc("/", handler.Browse)
 	mux.HandleFunc("/view", handler.View)
 	mux.HandleFunc("/download", handler.Download)
+	mux.HandleFunc("/zip", handler.Zip)
 	mux.HandleFunc("/upload", handler.Upload)
 	mux.HandleFunc("/delete", handler.Delete)
 	mux.HandleFunc("/rename", handler.Rename)

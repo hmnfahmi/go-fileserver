@@ -34,6 +34,10 @@ func TestStatusForErrorClassifiesOSErrors(t *testing.T) {
 		{"path error not exist", &os.PathError{Op: "stat", Path: "/secret", Err: os.ErrNotExist}, http.StatusNotFound},
 		{"raw permission", os.ErrPermission, http.StatusForbidden},
 		{"wrapped permission", fmt.Errorf("open: %w", os.ErrPermission), http.StatusForbidden},
+		{"raw exist", os.ErrExist, http.StatusConflict},
+		{"wrapped exist", fmt.Errorf("rename: %w", os.ErrExist), http.StatusConflict},
+		{"path error exist", &os.PathError{Op: "rename", Path: "/secret", Err: os.ErrExist}, http.StatusConflict},
+		{"path error unexpected", &os.PathError{Op: "write", Path: "/secret", Err: errors.New("disk failure")}, http.StatusInternalServerError},
 		{"generic", errors.New("boom"), http.StatusInternalServerError},
 	}
 
@@ -63,6 +67,7 @@ func TestMissingResourceReturnsNotFound(t *testing.T) {
 		{"download", Download, http.MethodGet, "/download?path=missing.txt"},
 		{"delete", Delete, http.MethodPost, "/delete?path=missing.txt"},
 		{"rename source", Rename, http.MethodPost, "/rename?path=missing.txt&newname=other.txt"},
+		{"browse directory", Browse, http.MethodGet, "/?path=missingdir"},
 	}
 
 	for _, tc := range cases {

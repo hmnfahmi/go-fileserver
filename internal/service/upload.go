@@ -25,7 +25,8 @@ func SaveUpload(dirRel string, filename string, r io.Reader) error {
 
 	info, err := os.Stat(dir)
 	if err != nil {
-		return err
+		// The destination directory may have been removed after resolution.
+		return classifyFSError(err)
 	}
 	if !info.IsDir() {
 		return ErrNotDirectory
@@ -43,10 +44,9 @@ func SaveUpload(dirRel string, filename string, r io.Reader) error {
 
 	f, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
-		if os.IsExist(err) {
-			return ErrFileExists
-		}
-		return err
+		// O_EXCL keeps its no-follow semantics; classifyFSError only turns the
+		// resulting error into ErrFileExists / ErrNotFound / ErrAccessDenied.
+		return classifyFSError(err)
 	}
 	defer f.Close()
 

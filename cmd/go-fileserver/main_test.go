@@ -225,14 +225,17 @@ func TestBuildMuxRegistersRoutes(t *testing.T) {
 		method     string
 		target     string
 		wantStatus int
+		wantType   string
 	}{
-		{"browse", http.MethodGet, "/", http.StatusOK},
-		{"view", http.MethodGet, "/view?path=f.txt", http.StatusOK},
-		{"download", http.MethodGet, "/download?path=f.txt", http.StatusOK},
-		{"static", http.MethodGet, "/static/css/reset.css", http.StatusOK},
-		{"upload method guard", http.MethodGet, "/upload", http.StatusMethodNotAllowed},
-		{"delete method guard", http.MethodGet, "/delete", http.StatusMethodNotAllowed},
-		{"rename method guard", http.MethodGet, "/rename", http.StatusMethodNotAllowed},
+		{"browse", http.MethodGet, "/", http.StatusOK, ""},
+		{"view", http.MethodGet, "/view?path=f.txt", http.StatusOK, ""},
+		{"download", http.MethodGet, "/download?path=f.txt", http.StatusOK, ""},
+		{"zip", http.MethodGet, "/zip?path=", http.StatusOK, "application/zip"},
+		{"zip method guard", http.MethodPost, "/zip?path=", http.StatusMethodNotAllowed, ""},
+		{"static", http.MethodGet, "/static/css/reset.css", http.StatusOK, ""},
+		{"upload method guard", http.MethodGet, "/upload", http.StatusMethodNotAllowed, ""},
+		{"delete method guard", http.MethodGet, "/delete", http.StatusMethodNotAllowed, ""},
+		{"rename method guard", http.MethodGet, "/rename", http.StatusMethodNotAllowed, ""},
 	}
 
 	for _, tc := range cases {
@@ -242,6 +245,11 @@ func TestBuildMuxRegistersRoutes(t *testing.T) {
 
 			if rec.Code != tc.wantStatus {
 				t.Errorf("%s %s status = %d, want %d", tc.method, tc.target, rec.Code, tc.wantStatus)
+			}
+			if tc.wantType != "" {
+				if ct := rec.Header().Get("Content-Type"); ct != tc.wantType {
+					t.Errorf("%s %s Content-Type = %q, want %q (route not wired to the ZIP handler)", tc.method, tc.target, ct, tc.wantType)
+				}
 			}
 		})
 	}

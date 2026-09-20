@@ -42,7 +42,10 @@ func TestCleanRel(t *testing.T) {
 		{"windows drive", `C:\Windows\win.ini`, "", ErrInvalidPath},
 		{"windows drive forward slash", "C:/Windows", "", ErrInvalidPath},
 		{"windows drive relative", "C:relative", "", ErrInvalidPath},
+		{"windows drive relative short", "C:foo", "", ErrInvalidPath},
+		{"posix backslash absolute", `\absolute\path`, "", ErrInvalidPath},
 		{"unc path", `\\server\share`, "", ErrInvalidPath},
+		{"unc forward slashes", "//server/share", "", ErrInvalidPath},
 		{"null byte", "a\x00b", "", ErrInvalidPath},
 	}
 

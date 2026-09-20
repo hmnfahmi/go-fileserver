@@ -172,6 +172,17 @@ func ResolveExisting(rel string) (string, error) {
 // create it with os.O_CREATE|os.O_EXCL, which refuses to follow an existing
 // symlink.
 func ResolveForCreate(rel string) (string, error) {
+	return resolveFinal(rel)
+}
+
+// resolveFinal verifies that the parent directory of rel, after resolving
+// intermediate symlinks and junctions, is inside the shared root, and returns
+// the path of the final component beneath that resolved parent.
+//
+// The final component itself is deliberately not resolved so callers can
+// inspect it (for example with os.Lstat) or create it without following an
+// existing link.
+func resolveFinal(rel string) (string, error) {
 	target, err := SafePath(rel)
 	if err != nil {
 		return "", err
